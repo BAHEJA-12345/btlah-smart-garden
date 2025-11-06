@@ -1,141 +1,83 @@
-import { useState, useEffect } from "react";
-import { PlantFilters, Plant } from "@/types/plant";
-import FilterBar from "@/components/FilterBar";
-import PlantCard from "@/components/PlantCard";
-import Pagination from "@/components/Pagination";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
+import Papa from "papaparse";
 
-const ITEMS_PER_PAGE = 20;
-
-const Recommendations = () => {
-  const [filters, setFilters] = useState<PlantFilters>({
-    potSize: "",
-    soilType: "",
-    lightType: "",
-    temperature: "",
-    season: "",
-  });
-  const [currentPage, setCurrentPage] = useState(1);
-  const [favorites, setFavorites] = useState<string[]>(() => {
-    const saved = localStorage.getItem("favoritePlants");
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [plants, setPlants] = useState<Plant[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
+export default function Recommendations() {
+  const [plants, setPlants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filters]);
+  // رابط ملف CSV من GitHub (تأكدي من الاسم الكامل)
+  const csvUrl =
+    "https://raw.githubusercontent.com/BAHEJA-12345/btlah-smart-garden/main/%D8%A8%D8%AA%D9%84%D9%87.csv";
 
   useEffect(() => {
-    const fetchPlants = async () => {
-      setLoading(true);
+    const fetchData = async () => {
       try {
-        let query = supabase.from('plants').select('*', { count: 'exact' });
+        const response = await fetch(csvUrl);
+        const text = await response.text();
 
-        // Apply filters
-        if (filters.potSize) query = query.ilike('pot_size', `%${filters.potSize}%`);
-        if (filters.soilType) query = query.ilike('soil_type', `%${filters.soilType}%`);
-        if (filters.lightType) query = query.ilike('light_type', `%${filters.lightType}%`);
-        if (filters.season) query = query.ilike('season', `%${filters.season}%`);
-        if (filters.temperature) query = query.ilike('temperature', `%${filters.temperature}%`);
+        const parsed = Papa.parse(text, {
+          header: true,
+          skipEmptyLines: true,
+        });
 
-        // Pagination
-        const from = (currentPage - 1) * ITEMS_PER_PAGE;
-        const to = from + ITEMS_PER_PAGE - 1;
-        query = query.range(from, to);
-
-        const { data, error, count } = await query;
-
-        if (error) throw error;
-
-        const formattedPlants: Plant[] = (data || []).map((p: any) => ({
-          id: p.id,
-          nameAr: p.name_ar,
-          season: p.season,
-          temperature: p.temperature,
-          waterMl: p.water_ml,
-          potSize: p.pot_size,
-          soilType: p.soil_type,
-          lightType: p.light_type,
-          benefit: p.benefit,
-        }));
-
-        setPlants(formattedPlants);
-        setTotalCount(count || 0);
+        setPlants(parsed.data);
       } catch (error) {
-        console.error('Error fetching plants:', error);
+        console.error("Error loading plants:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchPlants();
-  }, [filters, currentPage]);
+    fetchData();
+  }, []);
 
-  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-
-  const plantsWithFavorites = plants.map((plant) => ({
-    ...plant,
-    isFavorite: favorites.includes(plant.id),
-  }));
-
-  const handleToggleFavorite = (id: string) => {
-    const newFavorites = favorites.includes(id)
-      ? favorites.filter((fav) => fav !== id)
-      : [...favorites, id];
-    setFavorites(newFavorites);
-    localStorage.setItem("favoritePlants", JSON.stringify(newFavorites));
-  };
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen text-lg font-semibold">
+        Loading plant data...
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="space-y-8">
-        <div className="animate-fade-in">
-          <h1 className="text-4xl font-bold text-foreground mb-2">Smart Recommendations</h1>
-          <p className="text-muted-foreground">
-            Find the perfect plants for your space using our smart filters
-          </p>
-        </div>
-
-        <FilterBar filters={filters} onFilterChange={setFilters} />
-
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-            <p className="mt-4 text-muted-foreground">Loading plants...</p>
-          </div>
-        ) : (
-          <>
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Showing {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, totalCount)} of{" "}
-                {totalCount} plants
+    <div className="p-8 bg-[#FAF9F6] min-h-screen">
+      <h1 className="text-4xl font-bold text-green-800 mb-6">🌿 All Plants</h1>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {plants.length > 0 ? (
+          plants.map((plant, index) => (
+            <div
+              key={index}
+              className="bg-white shadow-md rounded-2xl p-4 flex flex-col items-center text-center border border-green-100 hover:shadow-lg transition"
+            >
+              <img
+                src={plant.image}
+                alt={plant.Type}
+                className="w-32 h-32 object-cover rounded-xl mb-3"
+              />
+              <h2 className="font-semibold text-xl mb-1">{plant.Type}</h2>
+              <p className="text-gray-600 text-sm mb-1">
+                💧 {plant["water-liters.day"]} L/day
               </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {plantsWithFavorites.map((plant) => (
-                  <PlantCard key={plant.id} plant={plant} onToggleFavorite={handleToggleFavorite} />
-                ))}
-              </div>
-
-              {plantsWithFavorites.length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-muted-foreground text-lg">No plants match your filters. Try adjusting them!</p>
-                </div>
-              )}
-
-              {totalPages > 1 && (
-                <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-              )}
+              <p className="text-gray-600 text-sm mb-1">
+                🌞 {plant.Light_Type}
+              </p>
+              <p className="text-gray-600 text-sm mb-1">
+                🌡️ {plant.Temperature_C}°C
+              </p>
+              <p className="text-gray-600 text-sm mb-1">
+                🪴 {plant.Pot_Size}
+              </p>
+              <p className="text-green-700 text-sm font-medium">
+                🌱 {plant.Benefit}
+              </p>
             </div>
-          </>
+          ))
+        ) : (
+          <p className="text-center text-gray-600 col-span-full">
+            No plants found. Make sure your CSV file is public.
+          </p>
         )}
       </div>
     </div>
   );
-};
-
-export default Recommendations;
+}
