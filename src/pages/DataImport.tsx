@@ -1,50 +1,89 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useEffect, useState } from "react";
+import Papa from "papaparse";
 
-export const DataImport = () => {
-  const [importing, setImporting] = useState(false);
-  const { toast } = useToast();
+export default function Recommendations() {
+  const [plants, setPlants] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 20;
 
-  const handleImport = async () => {
-    setImporting(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('import-plants');
-      
-      if (error) throw error;
+  useEffect(() => {
+    const csvUrl =
+      "https://raw.githubusercontent.com/BAHEJA-12345/btlah-smart-garden/main/%D8%A8%D8%AA%D9%84%D9%87.csv"; // رابط ملفك بGitHub
 
-      toast({
-        title: "Success!",
-        description: data.message || "Plants imported successfully",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Import Failed",
-        description: error.message || "Failed to import plants",
-        variant: "destructive",
-      });
-    } finally {
-      setImporting(false);
-    }
-  };
+    Papa.parse(csvUrl, {
+      download: true,
+      header: true,
+      complete: (results) => {
+        const cleanData = results.data.filter((row) => row.Type);
+        setPlants(cleanData);
+        setLoading(false);
+      },
+    });
+  }, []);
+
+  if (loading)
+    return <p className="text-center mt-10">جارٍ تحميل بيانات النباتات...</p>;
+
+  const totalPages = Math.ceil(plants.length / itemsPerPage);
+  const startIndex = (page - 1) * itemsPerPage;
+  const displayedPlants = plants.slice(startIndex, startIndex + itemsPerPage);
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-8">
-      <div className="max-w-md w-full space-y-6 text-center">
-        <h1 className="text-3xl font-bold">Import Plant Data</h1>
-        <p className="text-muted-foreground">
-          Click the button below to import 1000+ plants from your Google Drive dataset into the database.
-        </p>
-        <Button 
-          onClick={handleImport} 
-          disabled={importing}
-          size="lg"
-          className="w-full"
+    <div className="p-6 bg-[#FAF9F6] min-h-screen">
+      <h1 className="text-4xl font-bold mb-6 text-center text-[#4B6043]">
+        🌿 التوصيات الذكية (عرض {plants.length} نبتة)
+      </h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {displayedPlants.map((plant, index) => (
+          <div
+            key={index}
+            className="bg-white rounded-2xl shadow p-4 text-center border border-[#E5E7EB]"
+          >
+            <h2 className="text-xl font-semibold mb-2">{plant.Type}</h2>
+
+            {plant.image && (
+              <a href={plant.image} target="_blank" rel="noopener noreferrer">
+                <img
+                  src={plant.image}
+                  alt={plant.Type}
+                  className="w-full h-40 object-cover rounded-lg mb-3"
+                />
+              </a>
+            )}
+
+            <p>💧 {plant["water-liters.day"]} لتر/اليوم</p>
+            <p>🌡 {plant.Temperature_C}°C</p>
+            <p>🪴 {plant.Pot_Size}</p>
+            <p>☀ {plant.Light_Type}</p>
+            <p>🌱 {plant.Growth_Season}</p>
+            <p className="text-sm mt-2 italic">{plant.Benefit}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex justify-center items-center gap-4 mt-10">
+        <button
+          disabled={page === 1}
+          onClick={() => setPage((p) => p - 1)}
+          className="px-4 py-2 bg-[#CDE7B0] rounded-lg disabled:opacity-50"
         >
-          {importing ? "Importing..." : "Import Plants"}
-        </Button>
+          السابق
+        </button>
+
+        <span className="font-semibold">
+          صفحة {page} من {totalPages}
+        </span>
+
+        <button
+          disabled={page === totalPages}
+          onClick={() => setPage((p) => p + 1)}
+          className="px-4 py-2 bg-[#CDE7B0] rounded-lg disabled:opacity-50"
+        >
+          التالي
+        </button>
       </div>
     </div>
   );
-};
+}
