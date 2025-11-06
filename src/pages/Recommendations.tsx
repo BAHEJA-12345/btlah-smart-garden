@@ -1,9 +1,9 @@
-import { useState, useMemo } from "react";
-import { PlantFilters } from "@/types/plant";
-import { mockPlants } from "@/data/mockPlants";
+import { useState, useEffect } from "react";
+import { PlantFilters, Plant } from "@/types/plant";
 import FilterBar from "@/components/FilterBar";
 import PlantCard from "@/components/PlantCard";
 import Pagination from "@/components/Pagination";
+import { supabase } from "@/integrations/supabase/client";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -20,27 +20,64 @@ const Recommendations = () => {
     const saved = localStorage.getItem("favoritePlants");
     return saved ? JSON.parse(saved) : [];
   });
+  const [plants, setPlants] = useState<Plant[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  const filteredPlants = useMemo(() => {
-    return mockPlants.filter((plant) => {
-      if (filters.potSize && plant.potSize !== filters.potSize) return false;
-      if (filters.soilType && plant.soilType !== filters.soilType) return false;
-      if (filters.lightType && plant.lightType !== filters.lightType) return false;
-      if (filters.season && plant.season !== filters.season) return false;
-      if (filters.temperature) {
-        const [min, max] = filters.temperature.split("-").map(Number);
-        const [plantMin, plantMax] = plant.temperature.split("-").map(Number);
-        if (plantMin < min || plantMax > max) return false;
-      }
-      return true;
-    });
+  useEffect(() => {
+    setCurrentPage(1);
   }, [filters]);
 
-  const totalPages = Math.ceil(filteredPlants.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedPlants = filteredPlants.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  useEffect(() => {
+    const fetchPlants = async () => {
+      setLoading(true);
+      try {
+        let query = supabase.from('plants').select('*', { count: 'exact' });
 
-  const plantsWithFavorites = paginatedPlants.map((plant) => ({
+        // Apply filters
+        if (filters.potSize) query = query.ilike('pot_size', `%${filters.potSize}%`);
+        if (filters.soilType) query = query.ilike('soil_type', `%${filters.soilType}%`);
+        if (filters.lightType) query = query.ilike('light_type', `%${filters.lightType}%`);
+        if (filters.season) query = query.ilike('season', `%${filters.season}%`);
+        if (filters.temperature) query = query.ilike('temperature', `%${filters.temperature}%`);
+
+        // Pagination
+        const from = (currentPage - 1) * ITEMS_PER_PAGE;
+        const to = from + ITEMS_PER_PAGE - 1;
+        query = query.range(from, to);
+
+        const { data, error, count } = await query;
+
+        if (error) throw error;
+
+        const formattedPlants: Plant[] = (data || []).map((p: any) => ({
+          id: p.id,
+          nameAr: p.name_ar,
+          season: p.season,
+          temperature: p.temperature,
+          waterMl: p.water_ml,
+          potSize: p.pot_size,
+          soilType: p.soil_type,
+          lightType: p.light_type,
+          benefit: p.benefit,
+        }));
+
+        setPlants(formattedPlants);
+        setTotalCount(count || 0);
+      } catch (error) {
+        console.error('Error fetching plants:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPlants();
+  }, [filters, currentPage]);
+
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+
+  const plantsWithFavorites = plants.map((plant) => ({
     ...plant,
     isFavorite: favorites.includes(plant.id),
   }));
@@ -65,28 +102,37 @@ const Recommendations = () => {
 
         <FilterBar filters={filters} onFilterChange={setFilters} />
 
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Showing {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, filteredPlants.length)} of{" "}
-            {filteredPlants.length} plants
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {plantsWithFavorites.map((plant) => (
-              <PlantCard key={plant.id} plant={plant} onToggleFavorite={handleToggleFavorite} />
-            ))}
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+            <p className="mt-4 text-muted-foreground">Loading plants...</p>
           </div>
+        ) : (
+          <>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Showing {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, totalCount)} of{" "}
+                {totalCount} plants
+              </p>
 
-          {plantsWithFavorites.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground text-lg">No plants match your filters. Try adjusting them!</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {plantsWithFavorites.map((plant) => (
+                  <PlantCard key={plant.id} plant={plant} onToggleFavorite={handleToggleFavorite} />
+                ))}
+              </div>
+
+              {plantsWithFavorites.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground text-lg">No plants match your filters. Try adjusting them!</p>
+                </div>
+              )}
+
+              {totalPages > 1 && (
+                <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+              )}
             </div>
-          )}
-
-          {totalPages > 1 && (
-            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

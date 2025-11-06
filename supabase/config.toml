@@ -1,1 +1,4 @@
 project_id = "uauiheabpkolbeucgdcu"
+
+[functions.import-plants]
+verify_jwt = false

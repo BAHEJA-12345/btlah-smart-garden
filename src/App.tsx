@@ -10,6 +10,7 @@ import Benefits from "./pages/Benefits";
 import MyPlants from "./pages/MyPlants";
 import Messages from "./pages/Messages";
 import Assistant from "./pages/Assistant";
+import { DataImport } from "./pages/DataImport";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,10 +27,11 @@ const App = () => (
             <Route path="/" element={<Home />} />
             <Route path="/recommendations" element={<Recommendations />} />
             <Route path="/benefits" element={<Benefits />} />
-            <Route path="/my-plants" element={<MyPlants />} />
-            <Route path="/messages" element={<Messages />} />
-            <Route path="/assistant" element={<Assistant />} />
-            <Route path="*" element={<NotFound />} />
+          <Route path="/my-plants" element={<MyPlants />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/assistant" element={<Assistant />} />
+          <Route path="/import" element={<DataImport />} />
+          <Route path="*" element={<NotFound />} />
           </Routes>
         </div>
       </BrowserRouter>

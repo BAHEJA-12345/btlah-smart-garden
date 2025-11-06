@@ -14,7 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      plants: {
+        Row: {
+          benefit: string
+          care_instructions: string | null
+          created_at: string
+          growth_requirements: string | null
+          growth_tracker: string | null
+          id: string
+          light_type: string
+          name_ar: string
+          pot_size: string
+          season: string
+          soil_type: string
+          temperature: string
+          water_ml: number
+        }
+        Insert: {
+          benefit: string
+          care_instructions?: string | null
+          created_at?: string
+          growth_requirements?: string | null
+          growth_tracker?: string | null
+          id?: string
+          light_type: string
+          name_ar: string
+          pot_size: string
+          season: string
+          soil_type: string
+          temperature: string
+          water_ml: number
+        }
+        Update: {
+          benefit?: string
+          care_instructions?: string | null
+          created_at?: string
+          growth_requirements?: string | null
+          growth_tracker?: string | null
+          id?: string
+          light_type?: string
+          name_ar?: string
+          pot_size?: string
+          season?: string
+          soil_type?: string
+          temperature?: string
+          water_ml?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

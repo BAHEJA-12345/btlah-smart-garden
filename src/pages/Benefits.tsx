@@ -1,8 +1,10 @@
-import { useState, useMemo } from "react";
-import { mockPlants, benefits } from "@/data/mockPlants";
+import { useState, useEffect } from "react";
+import { benefits } from "@/data/mockPlants";
 import PlantCard from "@/components/PlantCard";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Plant } from "@/types/plant";
+import { supabase } from "@/integrations/supabase/client";
 
 const Benefits = () => {
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
@@ -10,6 +12,8 @@ const Benefits = () => {
     const saved = localStorage.getItem("favoritePlants");
     return saved ? JSON.parse(saved) : [];
   });
+  const [plants, setPlants] = useState<Plant[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const toggleBenefit = (benefit: string) => {
     setSelectedBenefits((prev) =>
@@ -17,12 +21,49 @@ const Benefits = () => {
     );
   };
 
-  const filteredPlants = useMemo(() => {
-    if (selectedBenefits.length === 0) return [];
-    return mockPlants.filter((plant) => selectedBenefits.includes(plant.benefit));
+  useEffect(() => {
+    const fetchPlants = async () => {
+      if (selectedBenefits.length === 0) {
+        setPlants([]);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        let query = supabase.from('plants').select('*');
+        
+        // Filter by selected benefits
+        selectedBenefits.forEach((benefit) => {
+          query = query.ilike('benefit', `%${benefit}%`);
+        });
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const formattedPlants: Plant[] = (data || []).map((p: any) => ({
+          id: p.id,
+          nameAr: p.name_ar,
+          season: p.season,
+          temperature: p.temperature,
+          waterMl: p.water_ml,
+          potSize: p.pot_size,
+          soilType: p.soil_type,
+          lightType: p.light_type,
+          benefit: p.benefit,
+        }));
+
+        setPlants(formattedPlants);
+      } catch (error) {
+        console.error('Error fetching plants:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPlants();
   }, [selectedBenefits]);
 
-  const plantsWithFavorites = filteredPlants.map((plant) => ({
+  const plantsWithFavorites = plants.map((plant) => ({
     ...plant,
     isFavorite: favorites.includes(plant.id),
   }));
@@ -64,10 +105,15 @@ const Benefits = () => {
           </div>
         </div>
 
-        {selectedBenefits.length > 0 && (
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+            <p className="mt-4 text-muted-foreground">Loading plants...</p>
+          </div>
+        ) : selectedBenefits.length > 0 ? (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Found {filteredPlants.length} plants with selected benefits
+              Found {plants.length} plants with selected benefits
             </p>
 
             {plantsWithFavorites.length > 0 ? (
@@ -84,9 +130,7 @@ const Benefits = () => {
               </div>
             )}
           </div>
-        )}
-
-        {selectedBenefits.length === 0 && (
+        ) : (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg">
               Select one or more benefits above to see matching plants
