@@ -3,27 +3,31 @@ import Papa from "papaparse";
 
 interface Plant {
   Type: string;
-  Water_ml_day: string;
   Growth_Season: string;
   Temperature_C: string;
+  Water_ml_day: string;
   Pot_Size: string;
   Light_Type: string;
   Soil_Type: string;
   Benefit: string;
 }
 
-const Recommendations: React.FC = () => {
+const Recommendations = () => {
   const [plants, setPlants] = useState<Plant[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const plantsPerPage = 50; // عدد النباتات في الصفحة
 
   useEffect(() => {
+    console.log("📦 Starting to load plants from CSV...");
     Papa.parse("/بتله.csv", {
       download: true,
       header: true,
       complete: (results) => {
+        console.log("✅ CSV loaded successfully:", results.data.length, "plants found");
         setPlants(results.data as Plant[]);
+        setLoading(false);
+      },
+      error: (error) => {
+        console.error("❌ Error loading CSV file:", error);
         setLoading(false);
       },
     });
@@ -31,95 +35,35 @@ const Recommendations: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen text-green-700 text-lg">
+      <div className="text-center mt-20 text-green-700 font-semibold text-lg">
         Loading plants...
       </div>
     );
   }
 
-  // تقسيم الصفحات
-  const indexOfLastPlant = currentPage * plantsPerPage;
-  const indexOfFirstPlant = indexOfLastPlant - plantsPerPage;
-  const currentPlants = plants.slice(indexOfFirstPlant, indexOfLastPlant);
-
-  const totalPages = Math.ceil(plants.length / plantsPerPage);
-
-  const handleNext = () => {
-    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
-  };
-
-  const handlePrev = () => {
-    if (currentPage > 1) setCurrentPage(currentPage - 1);
-  };
+  if (!plants.length) {
+    return (
+      <div className="text-center mt-20 text-red-600 font-semibold text-lg">
+        ⚠️ No plants found. Please check that بتله.csv is inside /public
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#f9f7f3] min-h-screen p-6">
-      <h1 className="text-3xl font-bold text-center text-[#3a3a3a] mb-6">
-        🌿 Smart Plant Recommendations
+      <h1 className="text-3xl font-bold text-center mb-8 text-green-800">
+        🌿 Plant Recommendations
       </h1>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {currentPlants.map((plant, index) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {plants.slice(0, 1000).map((plant, index) => (
           <div
             key={index}
-            className="bg-white rounded-2xl shadow-md p-4 hover:shadow-lg transition-shadow duration-200"
+            className="bg-white rounded-2xl shadow-md p-4 border border-green-100 hover:shadow-lg transition-all"
           >
-            <h2 className="text-xl font-semibold text-[#2f4f4f] mb-2 text-center">
-              {plant.Type}
-            </h2>
-            <div className="text-sm text-gray-700 space-y-1">
-              <p>
-                <strong>🌱 Season:</strong> {plant.Growth_Season}
-              </p>
-              <p>
-                <strong>🌡️ Temp:</strong> {plant.Temperature_C}°C
-              </p>
-              <p>
-                <strong>💧 Water/day:</strong> {plant.Water_ml_day} ml
-              </p>
-              <p>
-                <strong>🪴 Pot Size:</strong> {plant.Pot_Size}
-              </p>
-              <p>
-                <strong>☀️ Light:</strong> {plant.Light_Type}
-              </p>
-              <p>
-                <strong>🌍 Soil:</strong> {plant.Soil_Type}
-              </p>
-              <p>
-                <strong>🌸 Benefit:</strong> {plant.Benefit}
-              </p>
-            </div>
+            <h2 className="text-xl font-semibold text-green-800 mb-2">{plant.Type}</h2>
+            <p><strong>🌤 Season:</strong> {plant.Growth_Season}</p>
+            <p><strong>🌡 Temp:</strong> {plant.Temperature_C} °C</p>
+            <p><strong>💧 Water:</strong> {plant.Water_ml_day} ml/day</p>
+            <p><strong>🪴 Pot:</strong> {plant.Pot_Size_
 
-            <button className="mt-3 w-full bg-[#7BAE7F] text-white py-2 rounded-xl hover:bg-[#6da672] transition">
-              + Add to My Plants
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {/* أزرار الصفحات */}
-      <div className="flex justify-center items-center gap-4 mt-10">
-        <button
-          onClick={handlePrev}
-          disabled={currentPage === 1}
-          className="bg-[#e5e3df] text-[#333] px-4 py-2 rounded-lg hover:bg-[#d7d5d0] disabled:opacity-50"
-        >
-          ◀ Previous
-        </button>
-        <span className="text-lg font-semibold text-[#333]">
-          Page {currentPage} / {totalPages}
-        </span>
-        <button
-          onClick={handleNext}
-          disabled={currentPage === totalPages}
-          className="bg-[#7BAE7F] text-white px-4 py-2 rounded-lg hover:bg-[#6da672] disabled:opacity-50"
-        >
-          Next ▶
-        </button>
-      </div>
-    </div>
-  );
-};
-
-export default Recommendations;
