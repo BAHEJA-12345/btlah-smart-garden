@@ -22,10 +22,26 @@ export const DataImport = () => {
         skipEmptyLines: true,
       });
 
-      const plants = parsed.data;
+      const plants = parsed.data.map((row: any) => ({
+        name_ar: row.Type || '',
+        water_ml: parseInt(row.Water_ml_Notif || '0'),
+        season: row.Growth_Season || '',
+        temperature: row.Temperature_C || '',
+        pot_size: row.Pot_Size || '',
+        light_type: row.Light_Type || '',
+        soil_type: row.Soil_Type || '',
+        growth_requirements: row.Growth_Requirements || '',
+        care_instructions: row.Care_Instructions || '',
+        growth_tracker: row.Growth_Tracker || '',
+        benefit: row.Benefit || '',
+      }));
 
-      for (const plant of plants) {
-        await supabase.from("plants").insert(plant);
+      // Insert in batches of 100
+      const batchSize = 100;
+      for (let i = 0; i < plants.length; i += batchSize) {
+        const batch = plants.slice(i, i + batchSize);
+        const { error } = await supabase.from("plants").insert(batch);
+        if (error) throw error;
       }
 
       toast({

@@ -38,29 +38,35 @@ Deno.serve(async (req) => {
     const response = await fetch(csvUrl);
     const csvText = await response.text();
     
-    // Parse CSV
+    // Parse CSV with proper column mapping
     const lines = csvText.split('\n');
-    const headers = lines[0].split(',');
+    const headers = lines[0].split(',').map(h => h.trim());
+    
+    // Create column index mapping
+    const columnMap: Record<string, number> = {};
+    headers.forEach((header, index) => {
+      columnMap[header] = index;
+    });
     
     const plants = [];
     for (let i = 1; i < lines.length; i++) {
       if (!lines[i].trim()) continue;
       
       const values = lines[i].split(',');
-      if (values.length < 12) continue;
+      if (values.length < 11) continue;
       
       const plant = {
-        name_ar: values[0]?.trim() || '',
-        water_ml: parseInt(values[9]?.trim() || '0'),
-        season: values[2]?.trim() || '',
-        temperature: values[3]?.trim() || '',
-        pot_size: values[4]?.trim() || '',
-        light_type: values[5]?.trim() || '',
-        soil_type: values[6]?.trim() || '',
-        growth_requirements: values[7]?.trim() || '',
-        care_instructions: values[8]?.trim() || '',
-        growth_tracker: values[10]?.trim() || '',
-        benefit: values[11]?.trim() || '',
+        name_ar: values[columnMap['Type']]?.trim() || '',
+        water_ml: parseInt(values[columnMap['Water_ml_Notif']]?.trim() || '0'),
+        season: values[columnMap['Growth_Season']]?.trim() || '',
+        temperature: values[columnMap['Temperature_C']]?.trim() || '',
+        pot_size: values[columnMap['Pot_Size']]?.trim() || '',
+        light_type: values[columnMap['Light_Type']]?.trim() || '',
+        soil_type: values[columnMap['Soil_Type']]?.trim() || '',
+        growth_requirements: values[columnMap['Growth_Requirements']]?.trim() || '',
+        care_instructions: values[columnMap['Care_Instructions']]?.trim() || '',
+        growth_tracker: values[columnMap['Growth_Tracker']]?.trim() || '',
+        benefit: values[columnMap['Benefit']]?.trim() || '',
       };
       
       plants.push(plant);
