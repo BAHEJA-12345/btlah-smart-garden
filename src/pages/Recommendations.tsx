@@ -13,10 +13,10 @@ const Recommendations = () => {
   });
   const [page, setPage] = useState(1);
   const perPage = 20;
+  
+const csvUrl =
+  "https://drive.google.com/uc?export=download&id=1YhcSDnJf4Ahqn8JhUpg_DbshAnsSiAF_";
 
-  // ✅ رابط Google Drive بصيغة تحميل مباشر
-  const csvUrl =
-    "https://drive.google.com/uc?export=download&id=1YhcSDnJf4Ahqn8JhUpg_DbshAnsSiAF_";
 
   useEffect(() => {
     Papa.parse(csvUrl, {
