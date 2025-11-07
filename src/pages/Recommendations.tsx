@@ -1,131 +1,144 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Papa from "papaparse";
 
-interface Plant {
-  Type: string;
-  Water_ml_day: string;
-  Growth_Season: string;
-  Temperature_C: string;
-  Pot_Size: string;
-  Light_Type: string;
-  Soil_Type: string;
-  Benefit: string;
-}
-
-export default function Recommendations() {
-  const [plants, setPlants] = useState<Plant[]>([]);
-  const [filtered, setFiltered] = useState<Plant[]>([]);
+const Recommendations = () => {
+  const [plants, setPlants] = useState<any[]>([]);
+  const [filtered, setFiltered] = useState<any[]>([]);
   const [filters, setFilters] = useState({
-    Pot_Size: "",
-    Soil_Type: "",
-    Light_Type: "",
-    Growth_Season: "",
+    pot: "",
+    soil: "",
+    light: "",
+    temp: "",
+    season: "",
   });
   const [page, setPage] = useState(1);
   const perPage = 20;
 
-  // ✅ تحميل بيانات CSV
+  // ✅ رابط Google Drive بصيغة تحميل مباشر
+  const csvUrl =
+    "https://drive.google.com/uc?export=download&id=1YhcSDnJf4Ahqn8JhUpg_DbshAnsSiAF_";
+
   useEffect(() => {
-    Papa.parse(
-      "https://drive.google.com/uc?export=download&id=1YhcSDnJf4Ahqn8JhUpg_DbshAnsSiAF_",
-      {
-        download: true,
-        header: true,
-        complete: (results) => {
-          setPlants(results.data as Plant[]);
-          setFiltered(results.data as Plant[]);
-        },
-      }
-    );
+    Papa.parse(csvUrl, {
+      download: true,
+      header: true,
+      complete: (results) => {
+        setPlants(results.data);
+        setFiltered(results.data);
+      },
+    });
   }, []);
 
-  // ✅ تحديث الفلترة
-  const handleFilter = (key: keyof typeof filters, value: string) => {
-    const newFilters = { ...filters, [key]: value };
-    setFilters(newFilters);
-    let filteredList = plants.filter((plant) => {
-      return (
-        (newFilters.Pot_Size === "" ||
-          plant.Pot_Size.toLowerCase().includes(newFilters.Pot_Size.toLowerCase())) &&
-        (newFilters.Soil_Type === "" ||
-          plant.Soil_Type.toLowerCase().includes(newFilters.Soil_Type.toLowerCase())) &&
-        (newFilters.Light_Type === "" ||
-          plant.Light_Type.toLowerCase().includes(newFilters.Light_Type.toLowerCase())) &&
-        (newFilters.Growth_Season === "" ||
-          plant.Growth_Season.toLowerCase().includes(newFilters.Growth_Season.toLowerCase()))
-      );
-    });
-    setFiltered(filteredList);
+  // ✅ تطبيق الفلاتر
+  useEffect(() => {
+    let data = [...plants];
+    if (filters.pot) data = data.filter((p) => p.Pot_Size === filters.pot);
+    if (filters.soil) data = data.filter((p) => p.Soil_Type === filters.soil);
+    if (filters.light) data = data.filter((p) => p.Light_Type === filters.light);
+    if (filters.temp) data = data.filter((p) => p.Temperature_C.includes(filters.temp));
+    if (filters.season) data = data.filter((p) => p.Growth_Season === filters.season);
+    setFiltered(data);
     setPage(1);
-  };
+  }, [filters, plants]);
 
-  // ✅ تقسيم الصفحات
-  const totalPages = Math.ceil(filtered.length / perPage);
+  // ✅ التصفية مع الصفحات
   const startIndex = (page - 1) * perPage;
   const currentPlants = filtered.slice(startIndex, startIndex + perPage);
+  const totalPages = Math.ceil(filtered.length / perPage);
 
   return (
-    <div className="min-h-screen bg-[#F9F7F3] px-6 py-8">
-      <h1 className="text-3xl font-bold text-center text-[#7BAE7F] mb-8">
+    <div className="bg-[#F9F7F3] min-h-screen p-6">
+      <h1 className="text-3xl font-bold text-center text-[#7BAE7F] mb-6">
         🌿 Smart Plant Recommendations
       </h1>
 
-      {/* 🔍 الفلترة */}
-      <div className="flex flex-wrap justify-center gap-4 mb-10 bg-white shadow-md rounded-2xl p-4">
-        {["Pot_Size", "Soil_Type", "Light_Type", "Growth_Season"].map((key) => (
-          <select
-            key={key}
-            className="border border-gray-300 rounded-xl px-3 py-2 text-gray-700"
-            onChange={(e) =>
-              handleFilter(key as keyof typeof filters, e.target.value)
-            }
-          >
-            <option value="">All {key.replace("_", " ")}</option>
-            {[...new Set(plants.map((p) => (p as any)[key]))]
-              .filter(Boolean)
-              .map((option, i) => (
-                <option key={i} value={option}>
-                  {option}
-                </option>
-              ))}
-          </select>
-        ))}
+      {/* ✅ شريط الفلترة */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <select
+          onChange={(e) => setFilters({ ...filters, pot: e.target.value })}
+          className="rounded-xl border p-2"
+        >
+          <option value="">Pot Size</option>
+          <option value="ground">Ground</option>
+          <option value="small">Small</option>
+          <option value="medium">Medium</option>
+          <option value="large">Large</option>
+        </select>
+        <select
+          onChange={(e) => setFilters({ ...filters, soil: e.target.value })}
+          className="rounded-xl border p-2"
+        >
+          <option value="">Soil Type</option>
+          <option value="Clay">Clay</option>
+          <option value="Sandy">Sandy</option>
+          <option value="Loamy">Loamy</option>
+          <option value="Well-drained">Well-drained</option>
+        </select>
+        <select
+          onChange={(e) => setFilters({ ...filters, light: e.target.value })}
+          className="rounded-xl border p-2"
+        >
+          <option value="">Light Type</option>
+          <option value="Full sun">Full sun</option>
+          <option value="Indirect light">Indirect light</option>
+          <option value="Partial shade">Partial shade</option>
+        </select>
+        <select
+          onChange={(e) => setFilters({ ...filters, temp: e.target.value })}
+          className="rounded-xl border p-2"
+        >
+          <option value="">Temperature</option>
+          <option value="13">13–19°C</option>
+          <option value="17">17–26°C</option>
+          <option value="20">20–27°C</option>
+        </select>
+        <select
+          onChange={(e) => setFilters({ ...filters, season: e.target.value })}
+          className="rounded-xl border p-2"
+        >
+          <option value="">Season</option>
+          <option value="Summer">Summer</option>
+          <option value="Winter">Winter</option>
+          <option value="Spring">Spring</option>
+          <option value="Autumn">Autumn</option>
+        </select>
       </div>
 
-      {/* 🪴 كروت النباتات */}
+      {/* ✅ بطاقات النباتات */}
       {currentPlants.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {currentPlants.map((plant, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {currentPlants.map((plant, index) => (
             <div
-              key={i}
-              className="bg-white rounded-2xl shadow-md p-5 hover:shadow-lg transition"
+              key={index}
+              className="bg-white rounded-2xl shadow-md p-4 text-center border border-[#E5E5E5]"
             >
-              <h2 className="text-xl font-semibold mb-2 text-[#7BAE7F]">
-                {plant.Type || "نبتة غير معروفة"}
+              <h2 className="font-bold text-lg text-[#7BAE7F] mb-2">
+                {plant.Type || "—"}
               </h2>
-              <p>🌸 <b>Season:</b> {plant.Growth_Season}</p>
-              <p>🌡️ <b>Temp:</b> {plant.Temperature_C} °C</p>
-              <p>💧 <b>Water/day:</b> {plant.Water_ml_day} ml</p>
-              <p>🪴 <b>Pot:</b> {plant.Pot_Size}</p>
-              <p>☀️ <b>Light:</b> {plant.Light_Type}</p>
-              <p>🌱 <b>Soil:</b> {plant.Soil_Type}</p>
-              <p>🍃 <b>Benefit:</b> {plant.Benefit}</p>
-              <button className="mt-4 bg-[#7BAE7F] text-white px-4 py-2 rounded-xl w-full">
+              <p>🌸 <strong>Season:</strong> {plant.Growth_Season || "—"}</p>
+              <p>🌡️ <strong>Temp:</strong> {plant.Temperature_C || "—"}°C</p>
+              <p>💧 <strong>Water/day:</strong> {plant.Water_ml_day || "—"} ml</p>
+              <p>🪴 <strong>Pot:</strong> {plant.Pot_Size || "—"}</p>
+              <p>☀️ <strong>Light:</strong> {plant.Light_Type || "—"}</p>
+              <p>🌱 <strong>Soil:</strong> {plant.Soil_Type || "—"}</p>
+              <p>🍃 <strong>Benefit:</strong> {plant.Benefit || "—"}</p>
+
+              <button className="bg-[#7BAE7F] text-white font-semibold px-4 py-2 rounded-xl mt-3 hover:opacity-90">
                 + Add to My Plants
               </button>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-center text-gray-600">Loading plants...</p>
+        <p className="text-center text-gray-600 mt-10">Loading plants...</p>
       )}
 
-      {/* 📄 الترقيم */}
-      <div className="flex justify-center items-center gap-3 mt-8">
+      {/* ✅ أزرار الصفحات */}
+      <div className="flex justify-center items-center gap-3 mt-6">
         <button
           onClick={() => setPage((p) => Math.max(p - 1, 1))}
           disabled={page === 1}
-          className="bg-gray-200 px-3 py-1 rounded-lg disabled:opacity-50"
+          className="bg-gray-200 px-3 py-1 rounded-lg"
         >
           Prev
         </button>
@@ -135,11 +148,13 @@ export default function Recommendations() {
         <button
           onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
           disabled={page === totalPages}
-          className="bg-gray-200 px-3 py-1 rounded-lg disabled:opacity-50"
+          className="bg-gray-200 px-3 py-1 rounded-lg"
         >
           Next
         </button>
       </div>
     </div>
   );
-}
+};
+
+export default Recommendations;
