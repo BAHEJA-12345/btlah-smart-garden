@@ -14,8 +14,7 @@ const Recommendations = () => {
   const [page, setPage] = useState(1);
   const perPage = 20;
   
-const csvUrl =
-  "https://drive.google.com/uc?export=download&id=1YhcSDnJf4Ahqn8JhUpg_DbshAnsSiAF_";
+const csvUrl = "https://raw.githubusercontent.com/BAHEJA-12345/btlah-smart-garden/main/(2)%20بتله.csv";
 
 
 
