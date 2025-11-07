@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+
+
+    import React, { useEffect, useState } from "react";
 import Papa from "papaparse";
 
 const Recommendations = () => {
@@ -14,39 +16,37 @@ const Recommendations = () => {
   const [page, setPage] = useState(1);
   const perPage = 20;
 
-  // ✅ رابط CSV الصحيح (raw link)
+  // ✅ غيّرنا الرابط إلى الصيغة الصحيحة (بدون رموز %)
   const csvUrl =
-    "https://raw.githubusercontent.com/BAHEJA-12345/btlah-smart-garden/main/(2)%20بتله.csv";
+    "https://raw.githubusercontent.com/BAHEJA-12345/btlah-smart-garden/main/%282%29%20بتله.csv";
 
-  // ✅ تحميل البيانات من CSV
+  // ✅ تحميل النباتات من CSV
   useEffect(() => {
     Papa.parse(csvUrl, {
       download: true,
       header: true,
       complete: (results) => {
-        const data = results.data.filter((p: any) => p.Type && p.Type.trim() !== "");
-        setPlants(data);
-        setFiltered(data);
+        const cleanData = results.data.filter((row: any) => row.Type);
+        setPlants(cleanData);
+        setFiltered(cleanData);
       },
-      error: (error) => {
-        console.error("CSV Load Error:", error);
-      },
+      error: (err) => console.error("CSV Load Error:", err),
     });
   }, []);
 
-  // ✅ تطبيق الفلاتر عند التغيير
+  // ✅ تطبيق الفلاتر
   useEffect(() => {
     let data = [...plants];
-    if (filters.pot) data = data.filter((p) => p.Pot_Size?.toLowerCase() === filters.pot.toLowerCase());
-    if (filters.soil) data = data.filter((p) => p.Soil_Type?.toLowerCase() === filters.soil.toLowerCase());
-    if (filters.light) data = data.filter((p) => p.Light_Type?.toLowerCase() === filters.light.toLowerCase());
-    if (filters.temp) data = data.filter((p) => (p.Temperature_C || "").includes(filters.temp));
-    if (filters.season) data = data.filter((p) => p.Growth_Season?.toLowerCase() === filters.season.toLowerCase());
+    if (filters.pot) data = data.filter((p) => p.Pot_Size?.trim() === filters.pot);
+    if (filters.soil) data = data.filter((p) => p.Soil_Type?.trim() === filters.soil);
+    if (filters.light) data = data.filter((p) => p.Light_Type?.trim() === filters.light);
+    if (filters.temp) data = data.filter((p) => p.Temperature_C?.includes(filters.temp));
+    if (filters.season) data = data.filter((p) => p.Growth_Season?.trim() === filters.season);
     setFiltered(data);
     setPage(1);
   }, [filters, plants]);
 
-  // ✅ إعداد الصفحات
+  // ✅ تقسيم الصفحات
   const startIndex = (page - 1) * perPage;
   const currentPlants = filtered.slice(startIndex, startIndex + perPage);
   const totalPages = Math.ceil(filtered.length / perPage);
@@ -57,7 +57,7 @@ const Recommendations = () => {
         🌿 Smart Plant Recommendations
       </h1>
 
-      {/* ✅ شريط الفلاتر */}
+      {/* ✅ شريط الفلترة */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
         <select
           onChange={(e) => setFilters({ ...filters, pot: e.target.value })}
@@ -69,7 +69,6 @@ const Recommendations = () => {
           <option value="medium">Medium</option>
           <option value="large">Large</option>
         </select>
-
         <select
           onChange={(e) => setFilters({ ...filters, soil: e.target.value })}
           className="rounded-xl border p-2"
@@ -80,7 +79,6 @@ const Recommendations = () => {
           <option value="Loamy">Loamy</option>
           <option value="Well-drained">Well-drained</option>
         </select>
-
         <select
           onChange={(e) => setFilters({ ...filters, light: e.target.value })}
           className="rounded-xl border p-2"
@@ -90,7 +88,6 @@ const Recommendations = () => {
           <option value="Indirect light">Indirect light</option>
           <option value="Partial shade">Partial shade</option>
         </select>
-
         <select
           onChange={(e) => setFilters({ ...filters, temp: e.target.value })}
           className="rounded-xl border p-2"
@@ -99,9 +96,7 @@ const Recommendations = () => {
           <option value="13">13–19°C</option>
           <option value="17">17–26°C</option>
           <option value="20">20–27°C</option>
-          <option value="25">25–32°C</option>
         </select>
-
         <select
           onChange={(e) => setFilters({ ...filters, season: e.target.value })}
           className="rounded-xl border p-2"
@@ -114,27 +109,24 @@ const Recommendations = () => {
         </select>
       </div>
 
-      {/* ✅ عرض النباتات */}
+      {/* ✅ بطاقات النباتات */}
       {currentPlants.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {currentPlants.map((plant, index) => (
             <div
               key={index}
-              className="bg-white rounded-2xl shadow-md p-4 text-center border border-[#E5E5E5] hover:shadow-lg transition"
+              className="bg-white rounded-2xl shadow-md p-4 text-center border border-[#E5E5E5]"
             >
               <h2 className="font-bold text-lg text-[#7BAE7F] mb-2">
-                {plant.Type || "Unnamed Plant"}
+                {plant.Type || "—"}
               </h2>
               <p>🌸 <strong>Season:</strong> {plant.Growth_Season || "—"}</p>
-              <p>🌡️ <strong>Temp:</strong> {plant.Temperature_C || "—"}</p>
+              <p>🌡️ <strong>Temp:</strong> {plant.Temperature_C || "—"}°C</p>
               <p>💧 <strong>Water/day:</strong> {plant["water- liters.day"] || "—"} L</p>
               <p>🪴 <strong>Pot:</strong> {plant.Pot_Size || "—"}</p>
               <p>☀️ <strong>Light:</strong> {plant.Light_Type || "—"}</p>
               <p>🌱 <strong>Soil:</strong> {plant.Soil_Type || "—"}</p>
               <p>🍃 <strong>Benefit:</strong> {plant.Benefit || "—"}</p>
-              <button className="bg-[#7BAE7F] text-white font-semibold px-4 py-2 rounded-xl mt-3 hover:opacity-90">
-                + Add to My Plants
-              </button>
             </div>
           ))}
         </div>
@@ -142,7 +134,7 @@ const Recommendations = () => {
         <p className="text-center text-gray-600 mt-10">Loading plants...</p>
       )}
 
-      {/* ✅ أزرار الصفحات */}
+      {/* ✅ الصفحات */}
       <div className="flex justify-center items-center gap-3 mt-6">
         <button
           onClick={() => setPage((p) => Math.max(p - 1, 1))}
@@ -152,11 +144,11 @@ const Recommendations = () => {
           Prev
         </button>
         <span>
-          {page} / {totalPages || 1}
+          {page} / {totalPages}
         </span>
         <button
           onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-          disabled={page === totalPages || totalPages === 0}
+          disabled={page === totalPages}
           className="bg-gray-200 px-3 py-1 rounded-lg"
         >
           Next
