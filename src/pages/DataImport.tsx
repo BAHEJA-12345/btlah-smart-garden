@@ -8,8 +8,8 @@ export const DataImport = () => {
   const [importing, setImporting] = useState(false);
   const { toast } = useToast();
 
-  // رابط ملف CSV من Google Drive
-  const csvUrl = "https://drive.google.com/uc?export=download&id=1YhcSDnJf4Ahqn8JhUpg_DbshAnsSiAF_";
+  // Local CSV file
+  const csvUrl = "/plants-data.csv";
 
   const handleImport = async () => {
     setImporting(true);

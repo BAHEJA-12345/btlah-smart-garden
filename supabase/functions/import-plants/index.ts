@@ -31,8 +31,8 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Fetch the CSV file from Google Drive
-    const csvUrl = 'https://drive.google.com/uc?export=download&id=1YhcSDnJf4Ahqn8JhUpg_DbshAnsSiAF_';
+    // Fetch the CSV file from public folder
+    const csvUrl = `${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'lovableproject.com')}/plants-data.csv`;
     console.log('Fetching CSV from:', csvUrl);
     
     const response = await fetch(csvUrl);
