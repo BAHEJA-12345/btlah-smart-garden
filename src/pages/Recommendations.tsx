@@ -1,80 +1,126 @@
 import { useEffect, useState } from "react";
-import Papa from "papaparse";
-
-interface Plant {
-  Type: string;
-  "water- liters.day": string;
-  Growth_Season: string;
-  Temperature_C: string;
-  Pot_Size: string;
-  Light_Type: string;
-  Soil_Type: string;
-  Growth_Requirements: string;
-  Care_Instructions: string;
-  Benefit: string;
-  image: string;
-}
+import { supabase } from "@/integrations/supabase/client";
+import { Plant, PlantFilters } from "@/types/plant";
+import PlantCard from "@/components/PlantCard";
+import Pagination from "@/components/Pagination";
+import FilterBar from "@/components/FilterBar";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export default function Recommendations() {
   const [plants, setPlants] = useState<Plant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [filters, setFilters] = useState<PlantFilters>({
+    potSize: "",
+    soilType: "",
+    lightType: "",
+    temperature: "",
+    season: "",
+  });
+
+  const ITEMS_PER_PAGE = 20;
 
   useEffect(() => {
-    const csvUrl =
-      "https://raw.githubusercontent.com/BAHEJA-12345/btlah-smart-garden/refs/heads/main/%D8%A8%D8%AA%D9%84%D9%87%20(2).csv";
+    fetchPlants();
+  }, [currentPage, filters]);
 
-    Papa.parse(csvUrl, {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: (result) => {
-        console.log("✅ CSV Loaded:", result.data);
-        setPlants(result.data as Plant[]);
-        setLoading(false);
-      },
-      error: (error) => {
-        console.error("❌ CSV Error:", error);
-        setLoading(false);
-      },
-    });
-  }, []);
+  const fetchPlants = async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from("plants")
+        .select("*", { count: "exact" });
+
+      // Apply filters
+      if (filters.potSize) query = query.eq("pot_size", filters.potSize);
+      if (filters.soilType) query = query.eq("soil_type", filters.soilType);
+      if (filters.lightType) query = query.eq("light_type", filters.lightType);
+      if (filters.temperature) query = query.eq("temperature", filters.temperature);
+      if (filters.season) query = query.eq("season", filters.season);
+
+      // Apply pagination
+      const from = (currentPage - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
+      
+      const { data, error, count } = await query
+        .range(from, to)
+        .order("name_ar");
+
+      if (error) throw error;
+
+      const transformedPlants: Plant[] = (data || []).map((plant) => ({
+        id: plant.id,
+        nameAr: plant.name_ar,
+        season: plant.season,
+        temperature: plant.temperature,
+        waterMl: plant.water_ml,
+        potSize: plant.pot_size,
+        soilType: plant.soil_type,
+        lightType: plant.light_type,
+        benefit: plant.benefit,
+      }));
+
+      setPlants(transformedPlants);
+      setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE));
+    } catch (error) {
+      console.error("Error fetching plants:", error);
+      toast.error("Failed to load plants");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddToMyPlants = (plantId: string) => {
+    toast.success("Plant added to your collection!");
+    // TODO: Implement actual add to my plants functionality
+  };
+
+  const handleFilterChange = (newFilters: PlantFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1); // Reset to first page when filters change
+  };
 
   if (loading) {
-    return <p className="text-center mt-10">Loading plants...</p>;
-  }
-
-  if (plants.length === 0) {
-    return <p className="text-center mt-10">No plants found 😢</p>;
+    return (
+      <div className="min-h-screen bg-[#FAF9F6] p-6">
+        <p className="text-center mt-10 text-[#7BAE7F]">Loading plants...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold mb-4 text-green-800">🌿 All Plants</h1>
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {plants.map((plant, index) => (
-          <div
-            key={index}
-            className="border rounded-xl p-4 shadow-sm hover:shadow-md bg-white"
-          >
-            {plant.image && (
-              <img
-                src={plant.image}
-                alt={plant.Type}
-                className="w-full h-40 object-cover rounded-lg mb-3"
-              />
-            )}
-            <h2 className="text-xl font-semibold">{plant.Type}</h2>
-            <p className="text-sm text-gray-600">{plant.Benefit}</p>
-            <p className="text-sm mt-2">
-              💧 Water: {plant["water- liters.day"]} L/day
-            </p>
-            <p className="text-sm">🌡 Temp: {plant.Temperature_C}°C</p>
-            <p className="text-sm">🪴 Pot: {plant.Pot_Size}</p>
-            <p className="text-sm">☀️ Light: {plant.Light_Type}</p>
-            <p className="text-sm">🌱 Soil: {plant.Soil_Type}</p>
+    <div className="min-h-screen bg-[#FAF9F6] p-6">
+      <h1 className="text-4xl font-bold mb-6 text-[#7BAE7F]">🌿 Plant Recommendations</h1>
+      
+      <FilterBar filters={filters} onFilterChange={handleFilterChange} />
+
+      {plants.length === 0 ? (
+        <p className="text-center mt-10 text-gray-600">No plants found matching your filters</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+            {plants.map((plant) => (
+              <div key={plant.id} className="space-y-3">
+                <PlantCard plant={plant} />
+                <Button 
+                  onClick={() => handleAddToMyPlants(plant.id)}
+                  className="w-full bg-[#7BAE7F] hover:bg-[#6a9d70] text-white rounded-xl"
+                >
+                  Add to My Plants
+                </Button>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </>
+      )}
     </div>
   );
 }

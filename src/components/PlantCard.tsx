@@ -11,14 +11,14 @@ interface PlantCardProps {
 
 const PlantCard = ({ plant, onToggleFavorite }: PlantCardProps) => {
   return (
-    <Card className="group overflow-hidden shadow-card hover:shadow-xl transition-all duration-300 animate-fade-in">
+    <Card className="group overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 bg-white rounded-2xl border border-[#E8E3D9]">
       <div className="p-5 space-y-4">
         <div className="flex items-start justify-between">
           <div className="space-y-1 flex-1">
-            <h3 className="text-2xl font-bold text-foreground" style={{ fontFamily: "Arial" }}>
+            <h3 className="text-xl font-bold text-gray-800" style={{ fontFamily: "Arial" }}>
               {plant.nameAr}
             </h3>
-            <p className="text-sm text-muted-foreground">{plant.season}</p>
+            <p className="text-sm text-[#7BAE7F] font-medium">{plant.season}</p>
           </div>
           {onToggleFavorite && (
             <Button
@@ -30,7 +30,7 @@ const PlantCard = ({ plant, onToggleFavorite }: PlantCardProps) => {
               <Heart
                 className={cn(
                   "h-5 w-5 transition-colors",
-                  plant.isFavorite ? "fill-destructive text-destructive" : "text-muted-foreground"
+                  plant.isFavorite ? "fill-[#7BAE7F] text-[#7BAE7F]" : "text-gray-400"
                 )}
               />
             </Button>
@@ -39,29 +39,29 @@ const PlantCard = ({ plant, onToggleFavorite }: PlantCardProps) => {
 
         <div className="grid grid-cols-2 gap-3">
           <div className="flex items-center gap-2 text-sm">
-            <Thermometer className="h-4 w-4 text-primary" />
-            <span className="text-muted-foreground">{plant.temperature}°C</span>
+            <Thermometer className="h-4 w-4 text-[#7BAE7F]" />
+            <span className="text-gray-600">{plant.temperature}°C</span>
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <Droplets className="h-4 w-4 text-primary" />
-            <span className="text-muted-foreground">{plant.waterMl}ml/day</span>
+            <Droplets className="h-4 w-4 text-[#7BAE7F]" />
+            <span className="text-gray-600">{plant.waterMl}ml/day</span>
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <Sun className="h-4 w-4 text-primary" />
-            <span className="text-muted-foreground">{plant.lightType}</span>
+            <Sun className="h-4 w-4 text-[#7BAE7F]" />
+            <span className="text-gray-600">{plant.lightType}</span>
           </div>
           <div className="text-sm">
-            <span className="text-muted-foreground">Pot: {plant.potSize}</span>
+            <span className="text-gray-600">🪴 {plant.potSize}</span>
           </div>
         </div>
 
-        <div className="space-y-2 pt-2 border-t border-border">
+        <div className="space-y-2 pt-2 border-t border-[#E8E3D9]">
           <div className="text-sm">
-            <span className="font-medium text-foreground">Soil:</span>
-            <span className="ml-2 text-muted-foreground">{plant.soilType}</span>
+            <span className="font-medium text-gray-800">Soil:</span>
+            <span className="ml-2 text-gray-600">{plant.soilType}</span>
           </div>
           <div className="inline-block">
-            <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
+            <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#7BAE7F]/10 text-[#7BAE7F]">
               {plant.benefit}
             </span>
           </div>
