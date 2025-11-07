@@ -31,11 +31,11 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Fetch the CSV file
-    const csvUrl = `${Deno.env.get('SUPABASE_URL')?.replace('/v1', '')}/storage/v1/object/public/plants-data.csv`;
+    // Fetch the CSV file from Google Drive
+    const csvUrl = 'https://drive.google.com/uc?export=download&id=1YhcSDnJf4Ahqn8JhUpg_DbshAnsSiAF_';
     console.log('Fetching CSV from:', csvUrl);
     
-    const response = await fetch('https://drive.google.com/uc?export=download&id=1YhcSDnJf4Ahqn8JhUpg_DbshAnsSiAF_');
+    const response = await fetch(csvUrl);
     const csvText = await response.text();
     
     // Parse CSV

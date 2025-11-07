@@ -8,8 +8,8 @@ export const DataImport = () => {
   const [importing, setImporting] = useState(false);
   const { toast } = useToast();
 
-  // رابط ملف CSV من GitHub أو Google Drive
-  const csvUrl = "https://raw.githubusercontent.com/BAHEJA-12345/btlah-smart-garden/main/%D8%A8%D8%AA%D9%84%D9%87.csv";
+  // رابط ملف CSV من Google Drive
+  const csvUrl = "https://drive.google.com/uc?export=download&id=1YhcSDnJf4Ahqn8JhUpg_DbshAnsSiAF_";
 
   const handleImport = async () => {
     setImporting(true);
