@@ -12,15 +12,25 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+interface ImportSummary {
+  total: number;
+  new: number;
+  duplicates: number;
+  duplicateNames: string[];
+}
 
 export default function DataImport() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [summary, setSummary] = useState<ImportSummary | null>(null);
+  const [plantsToImport, setPlantsToImport] = useState<any[]>([]);
 
-  const handleImport = async () => {
+  const analyzeImport = async () => {
     setLoading(true);
-    setProgress({ current: 0, total: 0 });
+    setSummary(null);
 
     try {
       const response = await fetch("/plants-data.csv");
@@ -30,9 +40,6 @@ export default function DataImport() {
         header: true,
         skipEmptyLines: true,
         complete: async (results) => {
-          const totalPlants = results.data.length;
-          setProgress({ current: 0, total: totalPlants });
-
           const mapped = results.data.map((row: any) => ({
             name_ar: row.Type || null,
             water_ml: row.Water_ml_Notif ? parseInt(row.Water_ml_Notif) : null,
@@ -47,27 +54,87 @@ export default function DataImport() {
             benefit: row.Benefit || null,
           }));
 
-          // Insert in batches of 100
-          const batchSize = 100;
-          for (let i = 0; i < mapped.length; i += batchSize) {
-            const batch = mapped.slice(i, i + batchSize);
-            const { error } = await supabase.from("plants").insert(batch);
+          // Fetch existing plants from database
+          const { data: existingPlants, error } = await supabase
+            .from("plants")
+            .select("name_ar");
 
-            if (error) {
-              console.error("Batch insert error:", error);
-            }
-
-            setProgress({ current: Math.min(i + batchSize, totalPlants), total: totalPlants });
+          if (error) {
+            console.error("Error fetching existing plants:", error);
+            setLoading(false);
+            return;
           }
 
+          // Create a Set of existing plant names for quick lookup
+          const existingNames = new Set(
+            existingPlants?.map((p) => p.name_ar?.trim().toLowerCase()) || []
+          );
+
+          // Separate new and duplicate plants
+          const newPlants: any[] = [];
+          const duplicateNames: string[] = [];
+
+          mapped.forEach((plant) => {
+            const plantName = plant.name_ar?.trim().toLowerCase();
+            if (plantName && existingNames.has(plantName)) {
+              duplicateNames.push(plant.name_ar);
+            } else if (plantName) {
+              newPlants.push(plant);
+            }
+          });
+
+          setSummary({
+            total: mapped.length,
+            new: newPlants.length,
+            duplicates: duplicateNames.length,
+            duplicateNames: duplicateNames.slice(0, 10), // Show first 10
+          });
+
+          setPlantsToImport(newPlants);
           setLoading(false);
-          alert(`تم استيراد ${totalPlants} نبات بنجاح! 🌿`);
+          setDialogOpen(true);
         },
         error: (error) => {
           console.error("CSV parsing error:", error);
           setLoading(false);
         },
       });
+    } catch (error) {
+      console.error("Import error:", error);
+      setLoading(false);
+    }
+  };
+
+  const handleImport = async () => {
+    if (plantsToImport.length === 0) {
+      alert("لا توجد نباتات جديدة للاستيراد!");
+      return;
+    }
+
+    setLoading(true);
+    setProgress({ current: 0, total: plantsToImport.length });
+
+    try {
+      // Insert in batches of 100
+      const batchSize = 100;
+      for (let i = 0; i < plantsToImport.length; i += batchSize) {
+        const batch = plantsToImport.slice(i, i + batchSize);
+        const { error } = await supabase.from("plants").insert(batch);
+
+        if (error) {
+          console.error("Batch insert error:", error);
+        }
+
+        setProgress({
+          current: Math.min(i + batchSize, plantsToImport.length),
+          total: plantsToImport.length,
+        });
+      }
+
+      setLoading(false);
+      alert(`تم استيراد ${plantsToImport.length} نبات جديد بنجاح! 🌿`);
+      setSummary(null);
+      setPlantsToImport([]);
     } catch (error) {
       console.error("Import error:", error);
       setLoading(false);
@@ -86,30 +153,76 @@ export default function DataImport() {
             سيتم استيراد بيانات النباتات من ملف CSV إلى قاعدة البيانات. تأكد من أن الملف موجود في المسار الصحيح.
           </p>
 
+          <Button
+            onClick={analyzeImport}
+            disabled={loading}
+            className="w-full"
+            size="lg"
+          >
+            {loading ? "جارٍ التحليل..." : "تحليل واستيراد النباتات 🌿"}
+          </Button>
+
+          {summary && (
+            <Alert className="mt-4">
+              <AlertDescription>
+                <div className="space-y-2">
+                  <p className="font-semibold">ملخص التحليل:</p>
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    <li>إجمالي النباتات في الملف: {summary.total}</li>
+                    <li className="text-green-600 font-medium">
+                      نباتات جديدة: {summary.new}
+                    </li>
+                    <li className="text-orange-600">
+                      نباتات مكررة (موجودة بالفعل): {summary.duplicates}
+                    </li>
+                  </ul>
+                  {summary.duplicateNames.length > 0 && (
+                    <details className="mt-2">
+                      <summary className="text-sm cursor-pointer text-muted-foreground">
+                        عرض أمثلة للنباتات المكررة
+                      </summary>
+                      <ul className="mt-2 text-sm text-muted-foreground list-disc list-inside">
+                        {summary.duplicateNames.map((name, i) => (
+                          <li key={i}>{name}</li>
+                        ))}
+                        {summary.duplicates > 10 && (
+                          <li className="text-xs">
+                            ... و {summary.duplicates - 10} نباتات أخرى
+                          </li>
+                        )}
+                      </ul>
+                    </details>
+                  )}
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button
-                disabled={loading}
-                className="w-full"
-                size="lg"
-              >
-                {loading ? "جارٍ الاستيراد..." : "استيراد النباتات 🌿"}
-              </Button>
-            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>تأكيد الاستيراد</DialogTitle>
                 <DialogDescription>
-                  هل أنت متأكد من رغبتك في استيراد بيانات النباتات؟ سيتم إضافة البيانات الجديدة إلى قاعدة البيانات.
-                  <br /><br />
-                  <strong>ملاحظة:</strong> قد يؤدي هذا إلى إنشاء نسخ مكررة إذا تم الاستيراد عدة مرات.
+                  {summary && (
+                    <div className="space-y-2">
+                      <p>سيتم استيراد {summary.new} نبات جديد فقط.</p>
+                      {summary.duplicates > 0 && (
+                        <p className="text-orange-600">
+                          سيتم تجاهل {summary.duplicates} نبات مكرر (موجود بالفعل في
+                          قاعدة البيانات).
+                        </p>
+                      )}
+                      {summary.new === 0 && (
+                        <p className="text-red-600 font-medium">
+                          جميع النباتات موجودة بالفعل في قاعدة البيانات!
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setDialogOpen(false)}
-                >
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>
                   إلغاء
                 </Button>
                 <Button
@@ -117,8 +230,9 @@ export default function DataImport() {
                     setDialogOpen(false);
                     handleImport();
                   }}
+                  disabled={!summary || summary.new === 0}
                 >
-                  تأكيد الاستيراد
+                  تأكيد الاستيراد ({summary?.new || 0} نبات)
                 </Button>
               </DialogFooter>
             </DialogContent>
