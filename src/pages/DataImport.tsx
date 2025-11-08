@@ -1,155 +1,139 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import Papa from "papaparse";
+import { supabase } from "@/integrations/supabase/client";
+import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
-export default function Recommendations() {
-  const [plants, setPlants] = useState<any[]>([]);
-  const [filtered, setFiltered] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({
-    pot: "",
-    soil: "",
-    light: "",
-    season: "",
-    temp: "",
-  });
+export default function DataImport() {
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  useEffect(() => {
-    async function fetchPlants() {
-      try {
-        const response = await fetch(
-          "https://raw.githubusercontent.com/BAHEJA-12345/btlah-smart-garden/main/plants.csv"
-        );
-        const text = await response.text();
-        const rows = text.split("\n").slice(1);
-        const data = rows.map((row) => {
-          const cols = row.split(",");
-          return {
-            type: cols[0],
-            water: cols[1],
-            season: cols[2],
-            temp: cols[3],
-            pot: cols[4],
-            light: cols[5],
-            soil: cols[6],
-            requirements: cols[7],
-            care: cols[8],
-            ml: cols[9],
-            benefit: cols[10],
-            image: cols[11],
-          };
-        });
-        setPlants(data);
-        setFiltered(data);
-      } catch (err) {
-        console.error("Error loading CSV:", err);
-      } finally {
-        setLoading(false);
-      }
+  const handleImport = async () => {
+    setLoading(true);
+    setProgress({ current: 0, total: 0 });
+
+    try {
+      const response = await fetch("/plants-data.csv");
+      const csvText = await response.text();
+
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          const totalPlants = results.data.length;
+          setProgress({ current: 0, total: totalPlants });
+
+          const mapped = results.data.map((row: any) => ({
+            name_ar: row.Type || null,
+            water_ml: row.Water_ml_Notif ? parseInt(row.Water_ml_Notif) : null,
+            season: row.Growth_Season || null,
+            temperature: row.Temperature_C || null,
+            pot_size: row.Pot_Size || null,
+            light_type: row.Light_Type || null,
+            soil_type: row.Soil_Type || null,
+            requirements: row.Growth_Requirements || null,
+            care_instructions: row.Care_Instructions || null,
+            growth_tracker: row.Growth_Tracker || null,
+            benefit: row.Benefit || null,
+          }));
+
+          // Insert in batches of 100
+          const batchSize = 100;
+          for (let i = 0; i < mapped.length; i += batchSize) {
+            const batch = mapped.slice(i, i + batchSize);
+            const { error } = await supabase.from("plants").insert(batch);
+
+            if (error) {
+              console.error("Batch insert error:", error);
+            }
+
+            setProgress({ current: Math.min(i + batchSize, totalPlants), total: totalPlants });
+          }
+
+          setLoading(false);
+          alert(`تم استيراد ${totalPlants} نبات بنجاح! 🌿`);
+        },
+        error: (error) => {
+          console.error("CSV parsing error:", error);
+          setLoading(false);
+        },
+      });
+    } catch (error) {
+      console.error("Import error:", error);
+      setLoading(false);
     }
-    fetchPlants();
-  }, []);
-
-  // تحديث البيانات عند اختيار الفلاتر
-  useEffect(() => {
-    let data = [...plants];
-    if (filters.pot) data = data.filter((p) => p.pot === filters.pot);
-    if (filters.soil) data = data.filter((p) => p.soil === filters.soil);
-    if (filters.light) data = data.filter((p) => p.light === filters.light);
-    if (filters.season) data = data.filter((p) => p.season === filters.season);
-    if (filters.temp) data = data.filter((p) => p.temp.includes(filters.temp));
-    setFiltered(data);
-  }, [filters, plants]);
-
-  if (loading)
-    return <p className="text-center mt-10">جارٍ تحميل النباتات... 🌿</p>;
+  };
 
   return (
-    <div className="p-6 bg-[#F9F7F3] min-h-screen">
-      <h1 className="text-3xl font-bold text-center text-[#7BAE7F] mb-8">
-        🌿 قائمة النباتات الذكية
-      </h1>
+    <div className="p-6 bg-background min-h-screen">
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-3xl font-bold text-center mb-8">
+          استيراد بيانات النباتات
+        </h1>
 
-      {/* 🔍 شريط الفلاتر */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-        <select
-          onChange={(e) => setFilters({ ...filters, pot: e.target.value })}
-          className="rounded-xl border p-2"
-        >
-          <option value="">حجم الأصيص</option>
-          <option value="ground">Ground</option>
-          <option value="small">Small</option>
-          <option value="medium">Medium</option>
-          <option value="large">Large</option>
-        </select>
+        <div className="bg-card rounded-lg p-6 shadow-sm border">
+          <p className="text-muted-foreground mb-6">
+            سيتم استيراد بيانات النباتات من ملف CSV إلى قاعدة البيانات. تأكد من أن الملف موجود في المسار الصحيح.
+          </p>
 
-        <select
-          onChange={(e) => setFilters({ ...filters, soil: e.target.value })}
-          className="rounded-xl border p-2"
-        >
-          <option value="">نوع التربة</option>
-          <option value="Clay">Clay</option>
-          <option value="Sandy">Sandy</option>
-          <option value="Loamy">Loamy</option>
-          <option value="Well-drained">Well-drained</option>
-        </select>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                disabled={loading}
+                className="w-full"
+                size="lg"
+              >
+                {loading ? "جارٍ الاستيراد..." : "استيراد النباتات 🌿"}
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>تأكيد الاستيراد</DialogTitle>
+                <DialogDescription>
+                  هل أنت متأكد من رغبتك في استيراد بيانات النباتات؟ سيتم إضافة البيانات الجديدة إلى قاعدة البيانات.
+                  <br /><br />
+                  <strong>ملاحظة:</strong> قد يؤدي هذا إلى إنشاء نسخ مكررة إذا تم الاستيراد عدة مرات.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                >
+                  إلغاء
+                </Button>
+                <Button
+                  onClick={() => {
+                    setDialogOpen(false);
+                    handleImport();
+                  }}
+                >
+                  تأكيد الاستيراد
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-        <select
-          onChange={(e) => setFilters({ ...filters, light: e.target.value })}
-          className="rounded-xl border p-2"
-        >
-          <option value="">نوع الإضاءة</option>
-          <option value="Full sun">Full sun</option>
-          <option value="Indirect light">Indirect light</option>
-          <option value="Partial shade">Partial shade</option>
-        </select>
-
-        <select
-          onChange={(e) => setFilters({ ...filters, season: e.target.value })}
-          className="rounded-xl border p-2"
-        >
-          <option value="">الموسم</option>
-          <option value="Summer">Summer</option>
-          <option value="Winter">Winter</option>
-          <option value="Spring">Spring</option>
-          <option value="Autumn">Autumn</option>
-        </select>
-
-        <select
-          onChange={(e) => setFilters({ ...filters, temp: e.target.value })}
-          className="rounded-xl border p-2"
-        >
-          <option value="">درجة الحرارة</option>
-          <option value="13">13–19°C</option>
-          <option value="17">17–26°C</option>
-          <option value="20">20–27°C</option>
-        </select>
-      </div>
-
-      {/* 🌱 كروت النباتات */}
-      {filtered.length === 0 ? (
-        <p className="text-center text-gray-500">
-          لا توجد نباتات مطابقة للفلاتر المحددة 🌱
-        </p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filtered.map((p, i) => (
-            <div
-              key={i}
-              className="bg-white rounded-2xl shadow-md p-4 text-center border border-[#E5E5E5]"
-            >
-              <h2 className="font-bold text-lg text-[#7BAE7F] mb-2">
-                {p.type || "—"}
-              </h2>
-              <p>🌸 الموسم: {p.season || "—"}</p>
-              <p>🌡️ الحرارة: {p.temp || "—"}°C</p>
-              <p>💧 الماء: {p.ml || "—"} ml / يوم</p>
-              <p>🪴 الأصيص: {p.pot || "—"}</p>
-              <p>☀️ الإضاءة: {p.light || "—"}</p>
-              <p>🌱 التربة: {p.soil || "—"}</p>
-              <p>🍃 الفائدة: {p.benefit || "—"}</p>
+          {loading && progress.total > 0 && (
+            <div className="mt-6">
+              <Progress value={(progress.current / progress.total) * 100} className="mb-2" />
+              <p className="text-sm text-muted-foreground text-center">
+                تم استيراد {progress.current} من {progress.total} نبات
+              </p>
             </div>
-          ))}
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

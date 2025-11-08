@@ -10,7 +10,7 @@ import Benefits from "./pages/Benefits";
 import MyPlants from "./pages/MyPlants";
 import Messages from "./pages/Messages";
 import Assistant from "./pages/Assistant";
-import { DataImport } from "./pages/DataImport";
+import DataImport from "./pages/DataImport";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
