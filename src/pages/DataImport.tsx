@@ -1,110 +1,74 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import Papa from "papaparse";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useEffect, useState } from "react";
 
-export const DataImport = () => {
-  const [importing, setImporting] = useState(false);
-  const [progress, setProgress] = useState({ current: 0, total: 0 });
-  const { toast } = useToast();
+export default function Recommendations() {
+  const [plants, setPlants] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // ✅ رابط ملف النباتات من GitHub
-  const csvUrl = "https://raw.githubusercontent.com/BAHEJA-12345/btlah-smart-garden/main/plants.csv";
-
-  const handleImport = async () => {
-    setImporting(true);
-    setProgress({ current: 0, total: 0 });
-    try {
-      // تحميل ملف CSV من GitHub
-      const response = await fetch(csvUrl);
-      const csvText = await response.text();
-
-      // تحليل CSV إلى JSON
-      const parsed = Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-      });
-
-      // تحويل كل صف إلى كائن جاهز للإدخال في Supabase
-      const plants = parsed.data.map((row: any) => ({
-        name_ar: row.Type || "",
-        water_ml: parseInt(row.Water_ml_Notification || "0"),
-        season: row.Growth_Season || "",
-        temperature: row.Temperature_C || "",
-        pot_size: row.Pot_Size || "",
-        light_type: row.Light_Type || "",
-        soil_type: row.Soil_Type || "",
-        growth_requirements: row.Growth_Requirements || "",
-        care_instructions: row.Care_Instructions || "",
-        growth_tracker: row.Growth_Tracker || "",
-        benefit: row.Benefit || "",
-      }));
-
-      setProgress({ current: 0, total: plants.length });
-
-      // 🚀 إدخال البيانات إلى جدول plants في Supabase على دفعات (batch size = 100)
-      const batchSize = 100;
-      let imported = 0;
-
-      for (let i = 0; i < plants.length; i += batchSize) {
-        const batch = plants.slice(i, i + batchSize);
-        const { error } = await supabase.from("plants").insert(batch);
-        if (error) throw error;
-
-        imported += batch.length;
-        setProgress({ current: imported, total: plants.length });
+  useEffect(() => {
+    async function fetchPlants() {
+      try {
+        const response = await fetch(
+          "https://raw.githubusercontent.com/BAHEJA-12345/btlah-smart-garden/main/plants.csv"
+        );
+        const text = await response.text();
+        const rows = text.split("\n").slice(1); // تجاهل صف العناوين
+        const data = rows.map((row) => {
+          const cols = row.split(",");
+          return {
+            type: cols[0],
+            water: cols[1],
+            season: cols[2],
+            temp: cols[3],
+            pot: cols[4],
+            light: cols[5],
+            soil: cols[6],
+            requirements: cols[7],
+            care: cols[8],
+            ml: cols[9],
+            benefit: cols[10],
+            image: cols[11],
+          };
+        });
+        setPlants(data);
+      } catch (err) {
+        console.error("Error loading CSV:", err);
+      } finally {
+        setLoading(false);
       }
-
-      toast({
-        title: "✅ Success!",
-        description: `${plants.length} plants imported successfully 🌱`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "❌ Import Failed",
-        description: error.message || "Failed to import plants",
-        variant: "destructive",
-      });
-    } finally {
-      setImporting(false);
-      setProgress({ current: 0, total: 0 });
     }
-  };
 
-  const progressPercentage =
-    progress.total > 0
-      ? Math.round((progress.current / progress.total) * 100)
-      : 0;
+    fetchPlants();
+  }, []);
+
+  if (loading) {
+    return <p className="text-center mt-10">جارٍ تحميل النباتات... 🌿</p>;
+  }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-8">
-      <div className="max-w-md w-full space-y-6 text-center">
-        <h1 className="text-3xl font-bold">🌿 Import Plant Data</h1>
-        <p className="text-muted-foreground">
-          Click below to import all 1000+ plants from your dataset.
-        </p>
+    <div className="p-6 bg-[#F9F7F3] min-h-screen">
+      <h1 className="text-3xl font-bold text-center text-[#7BAE7F] mb-8">
+        🌿 قائمة النباتات
+      </h1>
 
-        {importing && progress.total > 0 && (
-          <div className="space-y-2">
-            <Progress value={progressPercentage} className="w-full" />
-            <p className="text-sm text-muted-foreground">
-              {progress.current} of {progress.total} plants imported (
-              {progressPercentage}%)
-            </p>
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {plants.map((p, i) => (
+          <div
+            key={i}
+            className="bg-white rounded-2xl shadow-md p-4 text-center border border-[#E5E5E5]"
+          >
+            <h2 className="font-bold text-lg text-[#7BAE7F] mb-2">
+              {p.type || "—"}
+            </h2>
+            <p>🌸 الموسم: {p.season || "—"}</p>
+            <p>🌡️ الحرارة: {p.temp || "—"}°C</p>
+            <p>💧 الماء: {p.ml || "—"} ml/يوم</p>
+            <p>🪴 الأصيص: {p.pot || "—"}</p>
+            <p>☀️ الإضاءة: {p.light || "—"}</p>
+            <p>🌱 التربة: {p.soil || "—"}</p>
+            <p>🍃 الفائدة: {p.benefit || "—"}</p>
           </div>
-        )}
-
-        <Button
-          onClick={handleImport}
-          disabled={importing}
-          size="lg"
-          className="w-full"
-        >
-          {importing ? "Importing..." : "Import Plants"}
-        </Button>
+        ))}
       </div>
     </div>
   );
-};
+}
