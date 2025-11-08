@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import Papa from "papaparse";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 export const DataImport = () => {
   const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
   const { toast } = useToast();
 
   // Local CSV file
@@ -13,6 +15,7 @@ export const DataImport = () => {
 
   const handleImport = async () => {
     setImporting(true);
+    setProgress({ current: 0, total: 0 });
     try {
       const response = await fetch(csvUrl);
       const csvText = await response.text();
@@ -36,12 +39,19 @@ export const DataImport = () => {
         benefit: row.Benefit || '',
       }));
 
+      setProgress({ current: 0, total: plants.length });
+
       // Insert in batches of 100
       const batchSize = 100;
+      let imported = 0;
+      
       for (let i = 0; i < plants.length; i += batchSize) {
         const batch = plants.slice(i, i + batchSize);
         const { error } = await supabase.from("plants").insert(batch);
         if (error) throw error;
+        
+        imported += batch.length;
+        setProgress({ current: imported, total: plants.length });
       }
 
       toast({
@@ -56,8 +66,13 @@ export const DataImport = () => {
       });
     } finally {
       setImporting(false);
+      setProgress({ current: 0, total: 0 });
     }
   };
+
+  const progressPercentage = progress.total > 0 
+    ? Math.round((progress.current / progress.total) * 100) 
+    : 0;
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-8">
@@ -66,6 +81,16 @@ export const DataImport = () => {
         <p className="text-muted-foreground">
           Click below to import all 1000+ plants from your dataset.
         </p>
+        
+        {importing && progress.total > 0 && (
+          <div className="space-y-2">
+            <Progress value={progressPercentage} className="w-full" />
+            <p className="text-sm text-muted-foreground">
+              {progress.current} of {progress.total} plants imported ({progressPercentage}%)
+            </p>
+          </div>
+        )}
+        
         <Button 
           onClick={handleImport} 
           disabled={importing}
