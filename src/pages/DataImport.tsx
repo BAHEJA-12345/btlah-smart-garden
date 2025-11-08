@@ -9,16 +9,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 interface ImportSummary {
   total: number;
   new: number;
   duplicates: number;
   duplicateNames: string[];
+  duplicatePlants: any[];
 }
 
 export default function DataImport() {
@@ -27,6 +29,7 @@ export default function DataImport() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [plantsToImport, setPlantsToImport] = useState<any[]>([]);
+  const [duplicateAction, setDuplicateAction] = useState<"skip" | "update">("skip");
 
   const analyzeImport = async () => {
     setLoading(true);
@@ -73,11 +76,13 @@ export default function DataImport() {
           // Separate new and duplicate plants
           const newPlants: any[] = [];
           const duplicateNames: string[] = [];
+          const duplicatePlants: any[] = [];
 
           mapped.forEach((plant) => {
             const plantName = plant.name_ar?.trim().toLowerCase();
             if (plantName && existingNames.has(plantName)) {
               duplicateNames.push(plant.name_ar);
+              duplicatePlants.push(plant);
             } else if (plantName) {
               newPlants.push(plant);
             }
@@ -88,6 +93,7 @@ export default function DataImport() {
             new: newPlants.length,
             duplicates: duplicateNames.length,
             duplicateNames: duplicateNames.slice(0, 10), // Show first 10
+            duplicatePlants,
           });
 
           setPlantsToImport(newPlants);
@@ -106,35 +112,80 @@ export default function DataImport() {
   };
 
   const handleImport = async () => {
-    if (plantsToImport.length === 0) {
+    if (plantsToImport.length === 0 && duplicateAction === "skip") {
       alert("لا توجد نباتات جديدة للاستيراد!");
       return;
     }
 
+    if (!summary) return;
+
     setLoading(true);
-    setProgress({ current: 0, total: plantsToImport.length });
+    
+    let totalToProcess = plantsToImport.length;
+    if (duplicateAction === "update") {
+      totalToProcess += summary.duplicatePlants.length;
+    }
+    
+    setProgress({ current: 0, total: totalToProcess });
 
     try {
-      // Insert in batches of 100
-      const batchSize = 100;
-      for (let i = 0; i < plantsToImport.length; i += batchSize) {
-        const batch = plantsToImport.slice(i, i + batchSize);
-        const { error } = await supabase.from("plants").insert(batch);
+      let processedCount = 0;
 
-        if (error) {
-          console.error("Batch insert error:", error);
+      // Insert new plants
+      if (plantsToImport.length > 0) {
+        const batchSize = 100;
+        for (let i = 0; i < plantsToImport.length; i += batchSize) {
+          const batch = plantsToImport.slice(i, i + batchSize);
+          const { error } = await supabase.from("plants").insert(batch);
+
+          if (error) {
+            console.error("Batch insert error:", error);
+          }
+
+          processedCount += batch.length;
+          setProgress({ current: processedCount, total: totalToProcess });
         }
+      }
 
-        setProgress({
-          current: Math.min(i + batchSize, plantsToImport.length),
-          total: plantsToImport.length,
-        });
+      // Update duplicate plants if requested
+      if (duplicateAction === "update" && summary.duplicatePlants.length > 0) {
+        for (const plant of summary.duplicatePlants) {
+          const { error } = await supabase
+            .from("plants")
+            .update({
+              water_ml: plant.water_ml,
+              season: plant.season,
+              temperature: plant.temperature,
+              pot_size: plant.pot_size,
+              light_type: plant.light_type,
+              soil_type: plant.soil_type,
+              requirements: plant.requirements,
+              care_instructions: plant.care_instructions,
+              growth_tracker: plant.growth_tracker,
+              benefit: plant.benefit,
+            })
+            .eq("name_ar", plant.name_ar);
+
+          if (error) {
+            console.error("Update error:", error);
+          }
+
+          processedCount++;
+          setProgress({ current: processedCount, total: totalToProcess });
+        }
       }
 
       setLoading(false);
-      alert(`تم استيراد ${plantsToImport.length} نبات جديد بنجاح! 🌿`);
+      
+      const message = 
+        duplicateAction === "update"
+          ? `تم استيراد ${plantsToImport.length} نبات جديد وتحديث ${summary.duplicatePlants.length} نبات موجود! 🌿`
+          : `تم استيراد ${plantsToImport.length} نبات جديد بنجاح! 🌿`;
+      
+      alert(message);
       setSummary(null);
       setPlantsToImport([]);
+      setDuplicateAction("skip");
     } catch (error) {
       console.error("Import error:", error);
       setLoading(false);
@@ -199,26 +250,59 @@ export default function DataImport() {
           )}
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>تأكيد الاستيراد</DialogTitle>
-                <DialogDescription>
-                  {summary && (
-                    <div className="space-y-2">
-                      <p>سيتم استيراد {summary.new} نبات جديد فقط.</p>
-                      {summary.duplicates > 0 && (
-                        <p className="text-orange-600">
-                          سيتم تجاهل {summary.duplicates} نبات مكرر (موجود بالفعل في
-                          قاعدة البيانات).
-                        </p>
-                      )}
-                      {summary.new === 0 && (
-                        <p className="text-red-600 font-medium">
-                          جميع النباتات موجودة بالفعل في قاعدة البيانات!
-                        </p>
-                      )}
-                    </div>
-                  )}
+                <DialogDescription asChild>
+                  <div className="space-y-4">
+                    {summary && (
+                      <>
+                        <div className="space-y-2">
+                          <p>سيتم استيراد {summary.new} نبات جديد.</p>
+                          {summary.duplicates > 0 && (
+                            <p className="text-orange-600">
+                              تم العثور على {summary.duplicates} نبات مكرر (موجود بالفعل في
+                              قاعدة البيانات).
+                            </p>
+                          )}
+                        </div>
+
+                        {summary.duplicates > 0 && (
+                          <div className="space-y-3">
+                            <Label className="text-sm font-medium">ماذا تريد أن تفعل بالنباتات المكررة؟</Label>
+                            <RadioGroup
+                              value={duplicateAction}
+                              onValueChange={(value) => setDuplicateAction(value as "skip" | "update")}
+                            >
+                              <div className="flex items-center space-x-2 space-x-reverse">
+                                <RadioGroupItem value="skip" id="skip" />
+                                <Label htmlFor="skip" className="cursor-pointer">
+                                  تخطي النباتات المكررة ({summary.duplicates} نبات)
+                                </Label>
+                              </div>
+                              <div className="flex items-center space-x-2 space-x-reverse">
+                                <RadioGroupItem value="update" id="update" />
+                                <Label htmlFor="update" className="cursor-pointer">
+                                  تحديث النباتات المكررة ({summary.duplicates} نبات)
+                                </Label>
+                              </div>
+                            </RadioGroup>
+                            <p className="text-xs text-muted-foreground">
+                              {duplicateAction === "skip"
+                                ? "سيتم تجاهل النباتات الموجودة والاحتفاظ بالبيانات الحالية"
+                                : "سيتم تحديث جميع بيانات النباتات الموجودة بالبيانات الجديدة من الملف"}
+                            </p>
+                          </div>
+                        )}
+
+                        {summary.new === 0 && summary.duplicates === 0 && (
+                          <p className="text-red-600 font-medium">
+                            لا توجد بيانات للاستيراد!
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
@@ -230,9 +314,11 @@ export default function DataImport() {
                     setDialogOpen(false);
                     handleImport();
                   }}
-                  disabled={!summary || summary.new === 0}
+                  disabled={!summary || (summary.new === 0 && duplicateAction === "skip")}
                 >
-                  تأكيد الاستيراد ({summary?.new || 0} نبات)
+                  {duplicateAction === "update" && summary
+                    ? `استيراد وتحديث (${summary.new + summary.duplicates} نبات)`
+                    : `استيراد (${summary?.new || 0} نبات)`}
                 </Button>
               </DialogFooter>
             </DialogContent>
